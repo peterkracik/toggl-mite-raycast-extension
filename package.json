@@ -13,13 +13,42 @@
   "commands": [
     {
       "name": "index",
-      "title": "Show List and Detail",
-      "description": "",
-      "mode": "view"
+      "title": "mite",
+      "description": "Show Toggl entries for date",
+      "mode": "view",
+      "arguments": [
+        {
+          "name": "date",
+          "type": "text",
+          "placeholder": "21-07-2023",
+          "required": true
+        }
+      ]
+
+    }
+  ],
+  "preferences": [
+    {
+      "name": "api_token",
+      "title": "Toggl API Token",
+      "description": "Toggl API Token",
+      "type": "password",
+      "required": true
+    },
+    {
+      "name": "workspace_id",
+      "title": "Toggl Workspace ID",
+      "description": "Toggl Workspace ID",
+      "type": "textfield",
+      "required": true
     }
   ],
   "dependencies": {
-    "@raycast/api": "^1.48.9"
+    "@raycast/api": "^1.48.9",
+    "btoa": "^1.2.1",
+    "moment": "^2.29.4",
+    "node-fetch": "^3.3.1",
+    "toggl-client": "^3.2.0"
   },
   "devDependencies": {
     "@raycast/eslint-config": "1.0.5",
