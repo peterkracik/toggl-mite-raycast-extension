@@ -111,6 +111,7 @@ const MiteEntriesList = ({ miteEntries }: MiteEntriesListProps) => {
       actions={
         <ActionPanel>
           <Action.CopyToClipboard title="Copy Description" content={item.description} />
+          <Action.CopyToClipboard title="Copy Time" content={item.durationTime} />
           <Action.OpenInBrowser title="Open Mite in Browser" url={`https://parkside.mite.de/#${item.date}`} />
         </ActionPanel>
       }
