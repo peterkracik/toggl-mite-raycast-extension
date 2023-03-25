@@ -2,8 +2,8 @@
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "toggl-to-mite",
   "title": "Toggl to Mite",
-  "description": "",
-  "icon": "command-icon.png",
+  "description": "Toggl to Mite",
+  "icon": "extension_icon.png",
   "author": "peterkracik",
   "owner": "pk-dev",
   "categories": [
@@ -24,7 +24,6 @@
           "required": true
         }
       ]
-
     }
   ],
   "preferences": [
@@ -52,6 +51,7 @@
   },
   "devDependencies": {
     "@raycast/eslint-config": "1.0.5",
+    "@types/btoa": "^1.2.3",
     "@types/node": "18.8.3",
     "@types/react": "18.0.9",
     "eslint": "^7.32.0",

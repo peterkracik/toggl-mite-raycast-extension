@@ -1,6 +1,7 @@
-import { ActionPanel, List, Action, Icon, Color, LaunchProps, getPreferenceValues } from "@raycast/api";
-import { useEffect, useState } from "react";
-import { getDate, getEntries, getMiteEntries, getPersonioEnties, getTotal } from "./togl";
+import { ActionPanel, List, Action, Icon, Color, LaunchProps, getPreferenceValues } from "@raycast/api"
+import { Moment } from "moment"
+import { useEffect, useState } from "react"
+import { getDate, getEntries, getMiteEntries, getPersonioEnties, getTotal, TMiteEntry, TPersonioEntry, TTogleEntrySimplified, TTotal } from "./togl"
 
 enum SelectTypes {
   all = 'All',
@@ -9,8 +10,8 @@ enum SelectTypes {
 }
 
 type Preferences = {
-  api_token: string;
-  workspace_id: string;
+  api_token: string
+  workspace_id: string
 }
 
 type CommandProps = {
@@ -18,65 +19,62 @@ type CommandProps = {
 }
 
 
-type TTotal = {
-  worktime: string;
-  breaktime: string;
-}
-
 export default function Command(props: LaunchProps<{ arguments: CommandProps }>) {
 
-  const [miteEntries, setMiteEntries] = useState([]);
-  const [entries, setEntries] = useState([]);
-  const [personioEntries, setPersonioEntries] = useState([]);
-  const [selected, setSelected] = useState<SelectTypes>(SelectTypes.all);
-  const [total, setTotal] = useState<TTotal>({ worktime: '', breaktime: '' });
-  const [currentDate, setCurrentDate] = useState<unknown>();
+  const [miteEntries, setMiteEntries] = useState<TMiteEntry[]>([])
+  const [entries, setEntries] = useState<TTogleEntrySimplified[]>([])
+  const [personioEntries, setPersonioEntries] = useState<TPersonioEntry[]>([])
+  const [selected, setSelected] = useState<SelectTypes>(SelectTypes.all)
+  const [total, setTotal] = useState<TTotal>({ worktime: '', breaktime: '' })
+  const [currentDate, setCurrentDate] = useState<Moment | null>()
 
-  const { date } = props.arguments;
-  const { api_token, workspace_id } = getPreferenceValues<Preferences>();
+  const { date } = props.arguments
+  const { api_token, workspace_id } = getPreferenceValues<Preferences>()
 
 
-  const getData = async (searchDate: unknown) => {
-    const entries = await getEntries({ token: api_token, workspaceId: workspace_id, date: searchDate });
-    setEntries(entries);
-    const [miteEntries, personioEntries, totalEntries] = await Promise.all([getMiteEntries(entries), getPersonioEnties(entries), getTotal(entries)]);
-    setMiteEntries(miteEntries);
-    setPersonioEntries(personioEntries);
-    setTotal(totalEntries);
+  const getData = async (searchDate: Moment) => {
+    const entries = await getEntries({ token: api_token, workspaceId: workspace_id, date: searchDate })
+    setEntries(entries)
+    const miteEntries = getMiteEntries(entries)
+    const personioEntries = getPersonioEnties(miteEntries)
+    const totalEntries = getTotal(miteEntries)
+    setMiteEntries(miteEntries)
+    setPersonioEntries(personioEntries)
+    setTotal(totalEntries)
   }
 
   useEffect(() => {
-    const formattedDate = getDate(date);
-    setCurrentDate(formattedDate);
-    getData(formattedDate);
+    const formattedDate = getDate(date)
+    setCurrentDate(formattedDate)
+    getData(formattedDate)
   }, [])
 
   const searchForDate = async (searchText: string) => {
     if (searchText.match(/^\d{2}-\d{2}-\d{4}$/)
-     || searchText.match(/^\d{2}-\d{2}$/)
-     || searchText.match(/^\d{2}$/)) {
-      const formattedDate = getDate(searchText);
-      setCurrentDate(formattedDate);
-      getData(formattedDate);
+      || searchText.match(/^\d{2}-\d{2}$/)
+      || searchText.match(/^\d{2}$/)) {
+      const formattedDate = getDate(searchText)
+      setCurrentDate(formattedDate)
+      getData(formattedDate)
     }
 
   }
 
-  const handleDropdownChange = (value: SelectTypes) => setSelected(value);
+  const handleDropdownChange = (value: SelectTypes) => setSelected(value)
 
-  const isSelected = (value) => SelectTypes[selected] === SelectTypes.all || SelectTypes[selected] === value;
+  const isSelected = (value: SelectTypes[keyof SelectTypes]) => selected === SelectTypes.all || selected === value
 
   return (
     <List
       searchBarAccessory={
-        <List.Dropdown tooltip="Dropdown With Sections" onChange={handleDropdownChange}>
-          {Object.keys(SelectTypes).map((key) => <List.Dropdown.Item value={key} title={SelectTypes[key]} key={key} />)}
+        <List.Dropdown tooltip="Dropdown With Sections" onChange={(value: string) => handleDropdownChange(value as unknown as SelectTypes)}>
+          {Object.values(SelectTypes).map((value) => <List.Dropdown.Item value={value} title={value} key={value} />)}
         </List.Dropdown>
       }
       filtering={false}
       navigationTitle="Toggl"
-      searchBarPlaceholder={ currentDate ? currentDate.format('DD-MM-yyyy') : 'Search'}
-      onSearchTextChange={ searchForDate }
+      searchBarPlaceholder={currentDate ? currentDate.format('DD-MM-yyyy') : 'Search'}
+      onSearchTextChange={searchForDate}
     >
       {(entries.length === 0) &&
         <List.EmptyView icon={{ source: "https://placekitten.com/500/500" }} title="Type something to get started" />
@@ -89,10 +87,14 @@ export default function Command(props: LaunchProps<{ arguments: CommandProps }>)
         <PersonioEntriesList personioEntries={personioEntries} />
       </List.Section>}
     </List>
-  );
+  )
 }
 
-const MiteEntriesList = ({ miteEntries }) => {
+type MiteEntriesListProps = {
+  miteEntries: TMiteEntry[]
+}
+
+const MiteEntriesList = ({ miteEntries }: MiteEntriesListProps) => {
   return <>
     {miteEntries && miteEntries.map(item => <List.Item
       icon={{
@@ -116,7 +118,10 @@ const MiteEntriesList = ({ miteEntries }) => {
   </>
 }
 
-const PersonioEntriesList = ({ personioEntries }) => {
+type PersonioEntriesListProps = {
+  personioEntries: TPersonioEntry[]
+}
+const PersonioEntriesList = ({ personioEntries }: PersonioEntriesListProps) => {
 
   return <>
     {personioEntries.map(item => <List.Item
@@ -127,7 +132,6 @@ const PersonioEntriesList = ({ personioEntries }) => {
       title={`${item.start} - ${item.end}`}
       key={item.id}
       keywords={[item.type]}
-      accessoryTitle={item.type}
       actions={
         <ActionPanel>
           <Action.CopyToClipboard title="Copy Start" content={item.start} />

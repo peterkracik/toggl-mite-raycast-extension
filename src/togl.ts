@@ -1,49 +1,75 @@
-import moment, { Moment } from 'moment';
-import btoa from 'btoa';
-import fetch from 'node-fetch';
-import { randomInt } from 'crypto';
+import moment, { Moment } from 'moment'
+import btoa from 'btoa'
+import fetch, { RequestInit } from 'node-fetch'
+import { randomInt } from 'crypto'
 
 type TogglParams = {
-  date: Moment;
-  workspaceId: string;
-  token: string;
+  date: Moment
+  workspaceId: string
+  token: string
 }
 
 export const getDate = (date: string) => {
   if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-    return moment(date);
+    return moment(date)
   }
   if (date.match(/^\d{2}-\d{2}-\d{4}$/)) {
-    return moment(date, 'DD-MM-YYYY');
+    return moment(date, 'DD-MM-YYYY')
   }
   if (date.match(/^\d{2}-\d{2}$/)) {
-    return moment(date, 'DD-MM');
+    return moment(date, 'DD-MM')
   }
   if (date.match(/^\d{2}$/)) {
-    return moment(date, 'DD');
+    return moment(date, 'DD')
   }
 
-  return moment();
+  return moment()
 }
 
-export const getEntries = async ({ date, workspaceId, token }: TogglParams) => {
-  const dateFrom = date.format('YYYY-MM-DD');
-  const dateTo = date.format('YYYY-MM-DD');
-  const userName = 'api_token';
-  const authToken = btoa(`${token}:${userName}`);
+export type TTogleEntrySimplified = {
+  duration: number
+  description: string
+  client: string
+  project: string
+  tags: string
+  start: number
+  end: number
+  id: number
+  date: string
+  color: string
+}
 
-  const requestOptions = {
+export type TTogglEntry = {
+  dur: number
+  description: string
+  client: string
+  project: string
+  tags: string[]
+  start: string
+  end: string
+  id: number
+  project_hex_color: string
+}
+
+export const getEntries = async ({ date, workspaceId, token }: TogglParams): Promise<TTogleEntrySimplified[]> => {
+  const dateFrom = date.format('YYYY-MM-DD')
+  const dateTo = date.format('YYYY-MM-DD')
+  const userName = 'api_token'
+  const authToken = btoa(`${token}:${userName}`)
+
+  const requestOptions: RequestInit = {
     method: 'GET',
     headers: {
       'Authorization': `Basic ${authToken}`
     },
     redirect: 'follow'
-  };
+  }
 
-  const output = await fetch(`https://api.track.toggl.com/reports/api/v2/details?since=${dateFrom}&until=${dateTo}&workspace_id=${workspaceId}&user_agent=api_test`, requestOptions)
-  const response = await output.json();
-  const togglEntries = response.data.map(item => {
-    const newEntry = {
+  const url = `https://api.track.toggl.com/reports/api/v2/details?since=${dateFrom}&until=${dateTo}&workspace_id=${workspaceId}&user_agent=api_test`
+  const output = await fetch(url, requestOptions)
+  const response = await output.json() as { data: TTogglEntry[] }
+  return response.data.map((item: TTogglEntry) => (
+    {
       duration: item.dur,
       description: item.description,
       client: item.client,
@@ -54,85 +80,105 @@ export const getEntries = async ({ date, workspaceId, token }: TogglParams) => {
       id: item.id,
       date: moment(item.start).format('YYYY/MM/DD'),
       color: item.project_hex_color,
-    };
-    return newEntry;
-  })
+    }
+  ))
+}
 
-  return togglEntries;
-};
+export type TMiteEntry = {
+  duration: number
+  description: string
+  client: string
+  project: string
+  tags: string
+  start: number
+  end: number
+  id: number
+  date: string
+  color: string
+  durationTime: string
+}
 
-export const getMiteEntries = async (entriesPromise) => {
-  const togglEntries = await entriesPromise;
-  const miteEntries: any[] = [];
+export const getMiteEntries = (togglEntries: TTogleEntrySimplified[]): TMiteEntry[]  => {
+  const miteEntries: TMiteEntry[] = []
   togglEntries.forEach(item => {
     const existing = miteEntries.find(entry => entry.description == item.description && entry.project == item.project)
     if (existing) {
-      existing.duration += item.duration;
-      const time = Math.round(existing.duration / 60000);
-      existing.durationTime = `${Math.floor(time / 60)}:${(time % 60).toString().padStart(2, 0)}`;
+      existing.duration += item.duration
+      const time = Math.round(existing.duration / 60000)
+      existing.durationTime = `${Math.floor(time / 60)}:${(time % 60).toString().padStart(2, '0')}`
     } else {
-      const time = Math.round(item.duration / 60000);
-      item.durationTime = `${Math.floor(time / 60)}:${(time % 60).toString().padStart(2, 0)}`;
-      miteEntries.push(item);
+      const time = Math.round(item.duration / 60000)
+      const durationTime = `${Math.floor(time / 60)}:${(time % 60).toString().padStart(2, '0')}`
+      miteEntries.push({...item, durationTime})
     }
 
   })
 
-  return miteEntries;
+  return miteEntries
+}
+
+export type TPersonioEntry = {
+  type: 'work' | 'break'
+  start: string
+  end: string
+  id: number
+  date: string
+}
+
+export type TTotal = {
+  worktime: string
+  breaktime: string
+}
+
+export const getTotal = (togglEntries: TMiteEntry[]): TTotal  => {
+  const step = 1 * 60
+  const endWork = Math.max(...togglEntries.map(item => item.end), 0)
+  const toTime = endWork + step + step
+  const startWork = Math.min(...togglEntries.map(item => item.start), toTime)
+  let workTime = togglEntries.reduce((total, item) => (total + (item.durationTime ? item.duration : 0)), 0)
+  const breakTime = Math.round((endWork - startWork - (workTime / 1000)) / 60)
+  workTime = Math.round(workTime / 60000)
+
+  const workTimeStr = `${Math.floor(workTime / 60)}:${(workTime % 60).toString().padStart(2, '0')}`
+  const breakTimeStr = `${Math.floor(breakTime / 60)}:${(breakTime % 60).toString().padStart(2, '0')}`
+
+  return { worktime: workTimeStr, breaktime: breakTimeStr }
+
 }
 
 
-export const getTotal = async (entriesPromise) => {
-  const step = 1 * 60;
-  const togglEntries = await entriesPromise;
-  const endWork = Math.max(...togglEntries.map(item => item.end), 0);
-  const toTime = endWork + step + step;
-  const startWork = Math.min(...togglEntries.map(item => item.start), toTime);
-  let workTime = togglEntries.reduce((total, item) => (total + (item.durationTime ? item.duration : 0)), 0);
-  const breakTime = Math.round((endWork - startWork - (workTime / 1000)) / 60);
-  workTime = Math.round(workTime / 60000);
+export const getPersonioEnties = (togglEntries: TMiteEntry[]): TPersonioEntry[] => {
+  const step = 1 * 60
+  const endWork = Math.max(...togglEntries.map(item => item.end), 0)
+  const toTime = endWork + step + step
+  const startWork = Math.min(...togglEntries.map(item => item.start), toTime)
+  const fromTime = startWork - step - step
 
-  const workTimeStr = `${Math.floor(workTime / 60)}:${(workTime % 60).toString().padStart(2, 0)}`;
-  const breakTimeStr = `${Math.floor(breakTime / 60)}:${(breakTime % 60).toString().padStart(2, 0)}`;
-
-  return { worktime: workTimeStr, breaktime: breakTimeStr };
-
-}
-
-
-export const getPersonioEnties = async (entriesPromise) => {
-  const step = 1 * 60;
-  const togglEntries = await entriesPromise;
-  const endWork = Math.max(...togglEntries.map(item => item.end), 0);
-  const toTime = endWork + step + step;
-  const startWork = Math.min(...togglEntries.map(item => item.start), toTime);
-  const fromTime = startWork - step - step;
-
-  const personioEntries = {};
+  const personioEntries: Record<number, TMiteEntry | boolean> = {}
   for (let i = fromTime; i <= toTime; i = i + step) {
     personioEntries[i] = !!togglEntries.find(item => i > item.start && i < item.end)
   }
 
-  const timeEntries = [];
-  let searchStart = true;
+  const timeEntries: TPersonioEntry[] = []
+  let searchStart = true
 
 
   Object.entries(personioEntries).forEach(([key, value]) => {
     if (searchStart) {
       if (value === true) {
-        timeEntries.push({ start: moment.unix(key).format('HH:mm') });
-        searchStart = false;
+        timeEntries.push({ start: moment.unix(+key).format('HH:mm') } as TPersonioEntry)
+        searchStart = false
       }
     }
     else {
       if (!value) {
-        timeEntries[timeEntries.length - 1].end = moment.unix(key).format('HH:mm');
-        searchStart = true;
+        timeEntries[timeEntries.length - 1].end = moment.unix(+key).format('HH:mm')
+        searchStart = true
       }
     }
   })
 
-  const arr: any[] = [];
+  const arr: TPersonioEntry[] = []
   timeEntries.forEach((item, index) => {
     arr.push({
       type: 'work',
@@ -140,7 +186,7 @@ export const getPersonioEnties = async (entriesPromise) => {
       end: item.end,
       id: randomInt(1000000, 9999999),
       date: moment().format('YYYY-MM'),
-    });
+    })
     if (timeEntries[index + 1]) {
       arr.push({
         type: 'break',
@@ -148,12 +194,9 @@ export const getPersonioEnties = async (entriesPromise) => {
         end: timeEntries[index + 1].start,
         id: randomInt(1000000, 9999999),
         date: moment().format('YYYY-MM'),
-      });
+      })
     }
-  });
-  return arr;
+  })
+  return arr
 }
-
-
-
 
