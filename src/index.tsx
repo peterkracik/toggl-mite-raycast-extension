@@ -36,8 +36,8 @@ export default function Command(props: LaunchProps<{ arguments: CommandProps }>)
     const entries = await getEntries({ token: api_token, workspaceId: workspace_id, date: searchDate })
     setEntries(entries)
     const miteEntries = getMiteEntries(entries)
-    const personioEntries = getPersonioEnties(miteEntries)
-    const totalEntries = getTotal(miteEntries)
+    const personioEntries = getPersonioEnties(entries)
+    const totalEntries = getTotal(personioEntries)
     setMiteEntries(miteEntries)
     setPersonioEntries(personioEntries)
     setTotal(totalEntries)
@@ -80,10 +80,10 @@ export default function Command(props: LaunchProps<{ arguments: CommandProps }>)
         <List.EmptyView icon={{ source: "https://placekitten.com/500/500" }} title="Type something to get started" />
       }
       {isSelected(SelectTypes.mite) &&
-        <List.Section title="Mite" subtitle={`work time: ${total.worktime} / breaks: ${total.breaktime}`}>
+        <List.Section title={ `Mite for ${currentDate?.format('YYYY/MM/DD')}`} subtitle={`work time: ${total.worktime} / breaks: ${total.breaktime}`}>
           <MiteEntriesList miteEntries={miteEntries} />
         </List.Section>}
-      {isSelected(SelectTypes.personio) && <List.Section title="Personio" subtitle={` work time: ${total.worktime} / breaks: ${total.breaktime}`}>
+      {isSelected(SelectTypes.personio) && <List.Section title={ `Personio for ${currentDate?.format('YYYY/MM/DD')}`} subtitle={`work time: ${total.worktime} / breaks: ${total.breaktime}`}>
         <PersonioEntriesList personioEntries={personioEntries} />
       </List.Section>}
     </List>
@@ -123,7 +123,7 @@ type PersonioEntriesListProps = {
   personioEntries: TPersonioEntry[]
 }
 const PersonioEntriesList = ({ personioEntries }: PersonioEntriesListProps) => {
-
+  console.log(personioEntries)
   return <>
     {personioEntries.map(item => <List.Item
       icon={{

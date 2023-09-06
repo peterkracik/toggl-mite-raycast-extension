@@ -10,6 +10,8 @@ type TogglParams = {
 }
 
 export const getDate = (date: string) => {
+  const current = moment();
+
   if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
     return moment(date)
   }
@@ -20,7 +22,13 @@ export const getDate = (date: string) => {
     return moment(date, 'DD-MM')
   }
   if (date.match(/^\d{2}$/)) {
-    return moment(date, 'DD')
+    const day = parseInt(date, 10);
+
+    if (day > current.date()) {
+      return current.subtract(1, 'month').date(day);
+    }
+
+    return current.date(day);
   }
 
   return moment()
@@ -98,7 +106,7 @@ export type TMiteEntry = {
   durationTime: string
 }
 
-export const getMiteEntries = (togglEntries: TTogleEntrySimplified[]): TMiteEntry[]  => {
+export const getMiteEntries = (togglEntries: TTogleEntrySimplified[]): TMiteEntry[] => {
   const miteEntries: TMiteEntry[] = []
   togglEntries.forEach(item => {
     const existing = miteEntries.find(entry => entry.description == item.description && entry.project == item.project)
@@ -109,7 +117,7 @@ export const getMiteEntries = (togglEntries: TTogleEntrySimplified[]): TMiteEntr
     } else {
       const time = Math.round(item.duration / 60000)
       const durationTime = `${Math.floor(time / 60)}:${(time % 60).toString().padStart(2, '0')}`
-      miteEntries.push({...item, durationTime})
+      miteEntries.push({ ...item, durationTime })
     }
 
   })
@@ -123,6 +131,7 @@ export type TPersonioEntry = {
   end: string
   id: number
   date: string
+  duration: number
 }
 
 export type TTotal = {
@@ -130,14 +139,9 @@ export type TTotal = {
   breaktime: string
 }
 
-export const getTotal = (togglEntries: TMiteEntry[]): TTotal  => {
-  const step = 1 * 60
-  const endWork = Math.max(...togglEntries.map(item => item.end), 0)
-  const toTime = endWork + step + step
-  const startWork = Math.min(...togglEntries.map(item => item.start), toTime)
-  let workTime = togglEntries.reduce((total, item) => (total + (item.durationTime ? item.duration : 0)), 0)
-  const breakTime = Math.round((endWork - startWork - (workTime / 1000)) / 60)
-  workTime = Math.round(workTime / 60000)
+export const getTotal = (togglEntries: TPersonioEntry[]): TTotal => {
+  const workTime = togglEntries.filter(item => item.type === 'work').reduce((total, item) => (total + (item.duration || 0)), 0)
+  const breakTime = togglEntries.filter(item => item.type === 'break').reduce((total, item) => (total + (item.duration || 0)), 0)
 
   const workTimeStr = `${Math.floor(workTime / 60)}:${(workTime % 60).toString().padStart(2, '0')}`
   const breakTimeStr = `${Math.floor(breakTime / 60)}:${(breakTime % 60).toString().padStart(2, '0')}`
@@ -147,16 +151,18 @@ export const getTotal = (togglEntries: TMiteEntry[]): TTotal  => {
 }
 
 
-export const getPersonioEnties = (togglEntries: TMiteEntry[]): TPersonioEntry[] => {
+export const getPersonioEnties = (togglEntries: TTogleEntrySimplified[]): TPersonioEntry[] => {
   const step = 1 * 60
   const endWork = Math.max(...togglEntries.map(item => item.end), 0)
   const toTime = endWork + step + step
   const startWork = Math.min(...togglEntries.map(item => item.start), toTime)
   const fromTime = startWork - step - step
 
+  togglEntries.sort((a, b) => a.start - b.start)
+
   const personioEntries: Record<number, TMiteEntry | boolean> = {}
   for (let i = fromTime; i <= toTime; i = i + step) {
-    personioEntries[i] = !!togglEntries.find(item => i > item.start && i < item.end)
+    personioEntries[i] = togglEntries.some(item => i > item.start && i < item.end)
   }
 
   const timeEntries: TPersonioEntry[] = []
@@ -184,6 +190,7 @@ export const getPersonioEnties = (togglEntries: TMiteEntry[]): TPersonioEntry[] 
       type: 'work',
       start: item.start,
       end: item.end,
+      duration: moment(item.end, 'HH:mm').diff(moment(item.start, 'HH:mm'), 'minutes'),
       id: randomInt(1000000, 9999999),
       date: moment().format('YYYY-MM'),
     })
@@ -191,6 +198,7 @@ export const getPersonioEnties = (togglEntries: TMiteEntry[]): TPersonioEntry[] 
       arr.push({
         type: 'break',
         start: item.end,
+        duration: moment(timeEntries[index + 1].start, 'HH:mm').diff(moment(item.end, 'HH:mm'), 'minutes'),
         end: timeEntries[index + 1].start,
         id: randomInt(1000000, 9999999),
         date: moment().format('YYYY-MM'),
