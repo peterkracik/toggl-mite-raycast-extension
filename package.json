@@ -5,7 +5,8 @@
   "description": "Toggl to Mite entries",
   "icon": "extension_icon.png",
   "author": "peterkracik",
-  "lincence": "MIT",
+  "licence": "MIT",
+  "owner": "pk-dev",
   "categories": [
     "Productivity"
   ],
@@ -62,6 +63,7 @@
     "fix-lint": "ray lint --fix",
     "lint": "ray lint",
     "publish": "ray publish",
-    "prettier": "ray prettier"
+    "prettier": "ray prettier",
+    "login": "ray login"
   }
 }
